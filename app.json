@@ -1,15 +1,16 @@
 {
   "expo": {
-    "name": "pocket-app",
-    "slug": "pocket-app",
+    "name": "pockero-app",
+    "slug": "pockero-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "pocketapp",
+    "scheme": "pockeroapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.pockeroapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.pocketapp"
+      "package": "com.anonymous.pockeroapp"
     },
     "web": {
       "output": "static",
@@ -39,7 +40,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "./plugins/withAndroidDrawables.js"
     ],
     "experiments": {
       "typedRoutes": true,

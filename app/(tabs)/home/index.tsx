@@ -8,17 +8,6 @@ const Page = () => {
       contentInsetAdjustmentBehavior="automatic"
     >
       <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
-      <Text>Page</Text>
     </ScrollView>
   );
 };

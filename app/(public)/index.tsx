@@ -1,9 +1,13 @@
 import { COLORS } from "@/utils/Colors";
+import { useSignIn, useSignUp, useSSO } from "@clerk/clerk-expo";
+import { OAuthStrategy } from "@clerk/types";
 import { AntDesign } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import * as AuthSession from "expo-auth-session";
+import { Link, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,14 +20,126 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+export const useWarmUpBrowser = () => {
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    void WebBrowser.warmUpAsync();
+    return () => {
+      // Cleanup: closes browser when component unmounts
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
+
+// Handle any pending authentication sessions
+WebBrowser.maybeCompleteAuthSession();
+
 const LogIn = () => {
+  const router = useRouter();
+  useWarmUpBrowser();
+
   // return <Redirect href="/(tabs)/home" />;
+
+  const { startSSOFlow } = useSSO();
 
   const openLink = (url: string) => {
     WebBrowser.openBrowserAsync(url);
   };
 
-  const handleSocialProvider = (provider: string) => {};
+  const handleSocialProvider = async (provider: string) => {
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: provider as OAuthStrategy,
+        redirectUrl: AuthSession.makeRedirectUri(),
+      });
+
+      if (createdSessionId) {
+        setActive?.({
+          session: createdSessionId,
+          navigate: async ({ session }) => {
+            console.log("Navigating to home with session:", session);
+          },
+        });
+      } else {
+        // If there is no `createdSessionId`,
+        // there are missing requirements, such as MFA
+        // See https://clerk.com/docs/guides/development/custom-flows/authentication/oauth-connections#handle-missing-requirements
+      }
+    } catch (error) {
+      console.error("SSO flow failed:", error);
+    }
+  };
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
+  const [email, setEmail] = useState("");
+
+  const handleVerificationWithCodeViaEmail = async () => {
+    if (!email.trim()) {
+      Alert.alert("Error", "Please enter your email address");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+
+    try {
+      // Try to sign in first
+      const signInAttempt = await signIn!.create({
+        identifier: email,
+      });
+
+      // Send the email code
+      await signIn!.prepareFirstFactor({
+        strategy: "email_code",
+        emailAddressId:
+          signInAttempt?.supportedFirstFactors?.find(
+            (factor) => factor.strategy === "email_code"
+          )?.emailAddressId ?? "",
+      });
+
+      // Navigate to verify code screen
+      router.push({
+        pathname: "/verify-code",
+        params: { email, mode: "signin" },
+      });
+    } catch (err: any) {
+      // If user doesn't exist, try to sign up
+      if (err.errors?.[0]?.code === "form_identifier_not_found") {
+        try {
+          await signUp!.create({
+            emailAddress: email,
+          });
+
+          await signUp!.prepareEmailAddressVerification({
+            strategy: "email_code",
+          });
+
+          // Navigate to verify code screen
+          router.push({
+            pathname: "/verify-code",
+            params: { email, mode: "signup" },
+          });
+        } catch (signUpErr: any) {
+          console.error("Sign up error:", signUpErr);
+          Alert.alert(
+            "Error",
+            signUpErr.errors?.[0]?.message || "Failed to send verification code"
+          );
+        }
+      } else {
+        console.error("Sign in error:", err);
+        Alert.alert(
+          "Error",
+          err.errors?.[0]?.message || "Failed to send verification code"
+        );
+      }
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
       <KeyboardAvoidingView
@@ -39,7 +155,7 @@ const LogIn = () => {
           <View style={styles.header}>
             <View style={styles.logo}>
               <Image
-                source={require("../assets/images/pocktica.png")}
+                source={require("../../assets/images/pocktica.png")}
                 style={styles.imageIcon}
               />
             </View>
@@ -47,13 +163,15 @@ const LogIn = () => {
           </View>
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => handleSocialProvider("oauth_apple")}
-            >
-              <AntDesign name="apple" size={24} color="black" />
-              <Text style={styles.socialButtonText}>Continue with Apple</Text>
-            </TouchableOpacity>
+            {Platform.OS === "ios" && (
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={() => handleSocialProvider("oauth_apple")}
+              >
+                <AntDesign name="apple" size={24} color="black" />
+                <Text style={styles.socialButtonText}>Continue with Apple</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.socialButton}
@@ -79,8 +197,13 @@ const LogIn = () => {
               autoCapitalize="none"
               autoCorrect={false}
               textContentType="emailAddress"
+              value={email}
+              onChangeText={setEmail}
             />
-            <TouchableOpacity style={styles.emailButton}>
+            <TouchableOpacity
+              style={styles.emailButton}
+              onPress={() => handleVerificationWithCodeViaEmail()}
+            >
               <Text style={styles.emailButtonText}>Next</Text>
             </TouchableOpacity>
 

@@ -14,7 +14,9 @@
       "infoPlist": {
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["pocktica"]
+            "CFBundleURLSchemes": [
+              "pocktica"
+            ]
           }
         ]
       }
@@ -46,7 +48,10 @@
               "scheme": "pocktica"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -68,7 +73,8 @@
           }
         }
       ],
-      "./plugins/withAndroidDrawables.js"
+      "./plugins/withAndroidDrawables.js",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -64,6 +64,7 @@ const LogIn = () => {
         await setActive?.({
           session: createdSessionId,
         });
+        await router.push("/(tabs)/home");
       } else {
         // Handle missing requirements (MFA, etc.)
         console.log("No session created - missing requirements");

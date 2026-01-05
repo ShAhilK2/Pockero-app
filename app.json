@@ -4,35 +4,62 @@
     "slug": "Pocktica",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "pockeroapp",
+    "icon": "./assets/images/pocktica.png",
+    "scheme": "pocktica",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.pockeroapp"
+      "bundleIdentifier": "com.anonymous.pocktica",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["pocktica"]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/pocktica.png",
+        "backgroundImage": "./assets/images/pocktica.png",
+        "monochromeImage": "./assets/images/pocktica.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.pockeroapp"
+      "package": "com.anonymous.pocktica",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.clerk.accounts.dev"
+            },
+            {
+              "scheme": "https",
+              "host": "clerk.pocktica.com"
+            },
+            {
+              "scheme": "pocktica"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "server",
+      "favicon": "./assets/images/pocktica.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/pocktica.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

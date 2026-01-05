@@ -6,3 +6,16 @@ bunx expo prebuild
 bun run ios
 
 bunx expo install react-native-keyboard-controller
+
+bunx expo customize babel.config.js
+
+bun add drizzle-orm expo-sqlite@next  
+bun add -D drizzle-kit
+
+bun install babel-plugin-inline-import
+
+<!-- After that add plugin  -->
+
+plugins: [["inline-import", { "extensions": [".sql"] }]] // <-- add this
+
+bun i expo-drizzle-studio-plugin

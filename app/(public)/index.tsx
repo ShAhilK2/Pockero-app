@@ -22,56 +22,70 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export const useWarmUpBrowser = () => {
   useEffect(() => {
-    if (Platform.OS !== "android") return;
     void WebBrowser.warmUpAsync();
     return () => {
-      // Cleanup: closes browser when component unmounts
       void WebBrowser.coolDownAsync();
     };
   }, []);
 };
 
-// Handle any pending authentication sessions
 WebBrowser.maybeCompleteAuthSession();
 
 const LogIn = () => {
   const router = useRouter();
   useWarmUpBrowser();
 
-  // return <Redirect href="/(tabs)/home" />;
-
   const { startSSOFlow } = useSSO();
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
+  const [email, setEmail] = useState("");
 
   const openLink = (url: string) => {
     WebBrowser.openBrowserAsync(url);
   };
 
-  const handleSocialProvider = async (provider: string) => {
+  const handleSocialProvider = async (strategy: OAuthStrategy) => {
     try {
+      // Create redirect URL with proper scheme
+      const redirectUrl = AuthSession.makeRedirectUri({
+        scheme: "pocktica",
+        path: "oauth-native-callback",
+      });
+
+      console.log("Redirect URL:", redirectUrl); // Debug log
+      console.log("Strategy:", strategy);
+
       const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: provider as OAuthStrategy,
-        redirectUrl: AuthSession.makeRedirectUri(),
+        strategy,
+        redirectUrl,
       });
 
       if (createdSessionId) {
-        setActive?.({
+        await setActive?.({
           session: createdSessionId,
-          navigate: async ({ session }) => {
-            console.log("Navigating to home with session:", session);
-          },
         });
       } else {
-        // If there is no `createdSessionId`,
-        // there are missing requirements, such as MFA
-        // See https://clerk.com/docs/guides/development/custom-flows/authentication/oauth-connections#handle-missing-requirements
+        // Handle missing requirements (MFA, etc.)
+        console.log("No session created - missing requirements");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("SSO flow failed:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
+
+      Alert.alert(
+        "Authentication Error",
+        error?.errors?.[0]?.message || "Failed to sign in. Please try again."
+      );
     }
   };
-  const { signIn } = useSignIn();
-  const { signUp } = useSignUp();
-  const [email, setEmail] = useState("");
+
+  const handleGoogleSignIn = () => {
+    handleSocialProvider("oauth_google");
+  };
+
+  const handleAppleSignIn = () => {
+    handleSocialProvider("oauth_apple");
+  };
 
   const handleVerificationWithCodeViaEmail = async () => {
     if (!email.trim()) {
@@ -79,7 +93,6 @@ const LogIn = () => {
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("Error", "Please enter a valid email address");
@@ -87,12 +100,10 @@ const LogIn = () => {
     }
 
     try {
-      // Try to sign in first
       const signInAttempt = await signIn!.create({
         identifier: email,
       });
 
-      // Send the email code
       await signIn!.prepareFirstFactor({
         strategy: "email_code",
         emailAddressId:
@@ -101,13 +112,11 @@ const LogIn = () => {
           )?.emailAddressId ?? "",
       });
 
-      // Navigate to verify code screen
       router.push({
         pathname: "/verify-code",
         params: { email, mode: "signin" },
       });
     } catch (err: any) {
-      // If user doesn't exist, try to sign up
       if (err.errors?.[0]?.code === "form_identifier_not_found") {
         try {
           await signUp!.create({
@@ -118,7 +127,6 @@ const LogIn = () => {
             strategy: "email_code",
           });
 
-          // Navigate to verify code screen
           router.push({
             pathname: "/verify-code",
             params: { email, mode: "signup" },
@@ -145,7 +153,6 @@ const LogIn = () => {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        // keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.container}
@@ -166,7 +173,7 @@ const LogIn = () => {
             {Platform.OS === "ios" && (
               <TouchableOpacity
                 style={styles.socialButton}
-                onPress={() => handleSocialProvider("oauth_apple")}
+                onPress={handleAppleSignIn}
               >
                 <AntDesign name="apple" size={24} color="black" />
                 <Text style={styles.socialButtonText}>Continue with Apple</Text>
@@ -175,7 +182,7 @@ const LogIn = () => {
 
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => handleSocialProvider("oauth_google")}
+              onPress={handleGoogleSignIn}
             >
               <AntDesign name="google" size={24} color="black" />
               <Text style={styles.socialButtonText}>Continue with Google</Text>
@@ -202,7 +209,7 @@ const LogIn = () => {
             />
             <TouchableOpacity
               style={styles.emailButton}
-              onPress={() => handleVerificationWithCodeViaEmail()}
+              onPress={handleVerificationWithCodeViaEmail}
             >
               <Text style={styles.emailButtonText}>Next</Text>
             </TouchableOpacity>
@@ -212,7 +219,6 @@ const LogIn = () => {
                 <Text
                   style={{
                     color: COLORS.secondary,
-
                     fontWeight: "bold",
                   }}
                 >
@@ -233,26 +239,6 @@ const LogIn = () => {
             >
               By Proceeding, you agree to {"\n"}
               Pocktica's{" "}
-              <Text
-                style={{
-                  textDecorationLine: "underline",
-                  color: COLORS.primary,
-                }}
-                onPress={() => openLink("https://pocktica.com/terms")}
-              >
-                Terms of Service
-              </Text>{" "}
-              and{" "}
-              <Text
-                style={{
-                  textDecorationLine: "underline",
-                  color: COLORS.primary,
-                }}
-                onPress={() => openLink("https://pocktica.com/privacy")}
-              >
-                Privacy Notice{"\n"}
-              </Text>
-              Mozilla Accounts{" "}
               <Text
                 style={{
                   textDecorationLine: "underline",

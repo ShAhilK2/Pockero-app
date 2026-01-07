@@ -1,4 +1,8 @@
+import { RssArticle, rssArticles, savedItems } from "@/db/schema";
 import { COLORS } from "@/utils/Colors";
+import { desc, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/expo-sqlite";
+import { useSQLiteContext } from "expo-sqlite";
 import React, { useEffect, useState } from "react";
 import {
   FlatList,
@@ -11,27 +15,19 @@ import {
   View,
 } from "react-native";
 
+import { useAuth } from "@clerk/clerk-expo";
+import * as Crypto from "expo-crypto";
+import { useRouter } from "expo-router";
+
 interface ArticleFeedProps {
   maxItems?: number;
   feedSource?: "expo" | "react-native";
   title?: string;
 }
 
-interface Article {
-  id: string;
-  title: string;
-  url: string;
-  description: string;
-  publishedDate: string;
-  category: string;
-  image: string;
-  source: string;
-  estimatedReadTime: number;
-}
-
 interface ArticleCardprops {
-  article: Article;
-  onSave: (article: Article) => void;
+  article: RssArticle;
+  onSave: (article: RssArticle) => void;
   variant?: "compact" | "featured";
 }
 
@@ -40,7 +36,7 @@ const ArticleCard = ({
   onSave,
   variant = "compact",
 }: ArticleCardprops) => {
-  const hasImage = article.image && article.image.length > 0;
+  const hasImage = article.image_url && article.image_url.length > 0;
   const handlePress = () => {
     if (article.url) {
       Linking.openURL(article.url);
@@ -50,7 +46,10 @@ const ArticleCard = ({
     return (
       <TouchableOpacity style={styles.featuredCard} onPress={handlePress}>
         {hasImage && (
-          <Image source={{ uri: article.image }} style={styles.featuredImage} />
+          <Image
+            source={{ uri: article.image_url || "" }}
+            style={styles.featuredImage}
+          />
         )}
 
         <View style={styles.featuredContent}>
@@ -62,7 +61,7 @@ const ArticleCard = ({
             <View style={styles.featuredMeta}>
               <Text style={styles.metaText}>{article.source} ᐧ </Text>
               <Text style={styles.metaText}>
-                {article.estimatedReadTime} min read
+                {article.estimated_read_time} min read
               </Text>
             </View>
 
@@ -96,7 +95,7 @@ const ArticleCard = ({
           </View>
           {hasImage && (
             <Image
-              source={{ uri: article.image }}
+              source={{ uri: article.image_url || "" }}
               style={styles.compactImage}
             />
           )}
@@ -105,7 +104,7 @@ const ArticleCard = ({
           <View style={styles.featuredMeta}>
             <Text style={styles.metaText}>{article.source} ᐧ </Text>
             <Text style={styles.metaText}>
-              {article.estimatedReadTime} min read
+              {article.estimated_read_time} min read
             </Text>
           </View>
 
@@ -134,8 +133,19 @@ const ArticlesFeed = ({
   title = "React Native Articles",
 }: ArticleFeedProps) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [articles, setArticles] = useState<RssArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const db = useSQLiteContext();
+
+  const drizzleDb = drizzle(db);
+
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    loadArticles();
+  }, []);
 
   const renderHeader = () => {
     return (
@@ -145,7 +155,48 @@ const ArticlesFeed = ({
     );
   };
 
-  const renderItem = ({ item, index }: { item: Article; index: number }) => {
+  const renderItem = ({ item, index }: { item: RssArticle; index: number }) => {
+    const handleOnSave = async (article: RssArticle) => {
+      try {
+        const existing = await drizzleDb
+          .select()
+          .from(savedItems)
+          .where(eq(savedItems.url, article.url));
+
+        console.log("🚀 Existing: ", existing);
+
+        if (existing.length > 0) {
+          console.log("Already Existed");
+          return;
+        }
+
+        const response = await fetch("/api/parse-url", {
+          method: "POST",
+          body: JSON.stringify({ url: article.url }),
+        });
+        const finalResult = await response.json();
+        console.log("🚀 Final Result: ", finalResult);
+
+        await drizzleDb.insert(savedItems).values({
+          id: Crypto.randomUUID(),
+
+          url: article.url,
+          title: article.title,
+          excerpt: article.description,
+          image_url: article.image_url,
+          domain: new URL(article.url).hostname,
+
+          reading_time: article.estimated_read_time,
+          user_id: user?.id || "1",
+          parsing_status: "parsed",
+          content: finalResult.data.content,
+        });
+
+        router.push("/(modal)/success");
+      } catch (error) {
+        console.log(error);
+      }
+    };
     if (index === 0) {
       return (
         <>
@@ -182,15 +233,60 @@ const ArticlesFeed = ({
     return null;
   };
 
+  const loadArticles = async () => {
+    try {
+      setIsLoading(true);
+      const cachedArticles = await drizzleDb
+        .select()
+        .from(rssArticles)
+        .orderBy(desc(rssArticles.published_date))
+        .limit(maxItems);
+
+      console.log("🚀 Cached Articles: ", cachedArticles);
+
+      if (cachedArticles.length > 0) {
+        setArticles(cachedArticles);
+        setIsLoading(false);
+      } else {
+        await fetchArticleData();
+      }
+    } catch (error) {
+      console.error("Error loading articles:", error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
   const fetchArticleData = async () => {
     try {
       setIsLoading(true);
       const result = await fetch("/api/rss-feed" + "?url=" + feedSource);
-      const data = await result.json();
-      console.log(data);
+      const finalResult = await result.json();
+      console.log(finalResult);
 
-      if (data.success) {
-        setArticles(data?.data?.items);
+      if (finalResult.success) {
+        await drizzleDb.delete(rssArticles);
+
+        const insertData = finalResult.data.items.map((item: any) => ({
+          id: Crypto.randomUUID(),
+          title: item.title,
+          url: item.url,
+          description: item.description,
+          published_date: item.publishedDate,
+          author: item.author,
+          category: item.category,
+          image_url: item.image,
+          source: item.source,
+          estimated_read_time: item.estimatedReadTime,
+          feed_url: finalResult.data.feedUrl,
+          is_saved: false,
+        }));
+
+        await drizzleDb.insert(rssArticles).values(insertData);
+
+        const articles = await drizzleDb.select().from(rssArticles);
+        loadArticles();
       }
     } catch (error) {
       console.error("Error fetching article data:", error);
@@ -199,13 +295,10 @@ const ArticlesFeed = ({
     }
   };
 
-  const handleRefresh = () => {};
-
-  const handleOnSave = () => {};
-
-  useEffect(() => {
+  const handleRefresh = () => {
+    setIsRefreshing(true);
     fetchArticleData();
-  }, []);
+  };
 
   if (isLoading || articles.length === 0) {
     return (

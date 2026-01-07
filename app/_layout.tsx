@@ -6,7 +6,8 @@ import { useDrizzleStudio } from "expo-drizzle-studio-plugin";
 import { Stack } from "expo-router";
 import { openDatabaseSync, SQLiteProvider } from "expo-sqlite";
 import React, { Suspense } from "react";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, Platform } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import migrations from "../drizzle/migrations";
 
@@ -20,6 +21,34 @@ const Layout = () => {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+      <Stack.Screen
+        name="(modal)/success"
+        options={
+          Platform.OS === "ios"
+            ? {
+                presentation: "formSheet",
+                sheetAllowedDetents: [0.5, 1],
+                sheetGrabberVisible: false,
+                headerShadowVisible: false,
+                title: "",
+                contentStyle: { height: "100%" },
+              }
+            : {
+                presentation: "transparentModal",
+                headerShown: false,
+                sheetAllowedDetents: [0.5, 1],
+                sheetGrabberVisible: false,
+                headerShadowVisible: false,
+
+                animation: "fade",
+                contentStyle: {
+                  backgroundColor: "transparent",
+                },
+              }
+        }
+      />
+
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen
           name="(public)/index"
@@ -51,17 +80,19 @@ const RootLayout = () => {
 
   return (
     <ClerkProvider tokenCache={tokenCache}>
-      <KeyboardProvider>
-        <Suspense fallback={<ActivityIndicator />}>
-          <SQLiteProvider
-            useSuspense
-            databaseName={DATABASE_NAME}
-            options={{ enableChangeListener: true }}
-          >
-            <Layout />
-          </SQLiteProvider>
-        </Suspense>
-      </KeyboardProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardProvider>
+          <Suspense fallback={<ActivityIndicator />}>
+            <SQLiteProvider
+              useSuspense
+              databaseName={DATABASE_NAME}
+              options={{ enableChangeListener: true }}
+            >
+              <Layout />
+            </SQLiteProvider>
+          </Suspense>
+        </KeyboardProvider>
+      </GestureHandlerRootView>
     </ClerkProvider>
   );
 };

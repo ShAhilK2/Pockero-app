@@ -38,6 +38,7 @@
     "expo-web-browser": "~15.0.8",
     "fast-xml-parser": "^5.3.3",
     "input-otp-native": "^0.5.0",
+    "linkedom": "^0.18.12",
     "nstall": "^0.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

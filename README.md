@@ -25,3 +25,7 @@ bun i expo-drizzle-studio-plugin
 bunx expo install expo-crypto
 
 bunx expo install expo-sqlite
+
+<!-- linkedom -->
+
+bunx expo install linkedom

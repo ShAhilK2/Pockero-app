@@ -2,12 +2,14 @@ import { COLORS } from "@/utils/Colors";
 import { useSignIn, useSignUp, useSSO } from "@clerk/clerk-expo";
 import { OAuthStrategy } from "@clerk/types";
 import { AntDesign } from "@expo/vector-icons";
+import * as Sentry from "@sentry/react-native";
 import * as AuthSession from "expo-auth-session";
 import { Link, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Button,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -260,6 +262,15 @@ const LogIn = () => {
                 Privacy Notice
               </Text>
             </Text>
+
+            <Button
+              title="Try!"
+              onPress={() => {
+                Sentry.captureException(
+                  new Error("First error in pocktica-app")
+                );
+              }}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

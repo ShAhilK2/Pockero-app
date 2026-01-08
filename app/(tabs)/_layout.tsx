@@ -1,10 +1,27 @@
 import { COLORS } from "@/utils/Colors";
+import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
+import { useEffect } from "react";
 import { Platform } from "react-native";
 
+import Sentry from "@sentry/react-native";
+
 export default function RootLayout() {
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (user) {
+      Sentry?.setUser?.({
+        id: user.id,
+        email: user.emailAddresses?.[0]?.emailAddress,
+      });
+    } else {
+      Sentry?.setUser?.(null);
+    }
+  }, [user]);
+
   return Platform.OS === "ios" ? (
     <NativeTabs tintColor={COLORS.textDark} blurEffect="systemChromeMaterial">
       <NativeTabs.Trigger name="home">
@@ -68,7 +85,6 @@ export default function RootLayout() {
         name="settings"
         options={{
           title: "Settings",
-
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name={focused ? "settings-sharp" : "settings-outline"}
@@ -78,11 +94,10 @@ export default function RootLayout() {
           ),
         }}
       />
-      {/* Hide the index route */}
       <Tabs.Screen
         name="index"
         options={{
-          href: null, // This hides the tab
+          href: null,
         }}
       />
     </Tabs>

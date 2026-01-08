@@ -74,7 +74,15 @@
         }
       ],
       "./plugins/withAndroidDrawables.js",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "pocktica-app",
+          "organization": "kataria-ki"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

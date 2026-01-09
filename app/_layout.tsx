@@ -82,6 +82,33 @@ const Layout = () => {
         }
       />
 
+      <Stack.Screen
+        name="(modal)/add-url"
+        options={
+          Platform.OS === "ios"
+            ? {
+                presentation: "formSheet",
+                sheetAllowedDetents: [0.5, 1],
+                sheetGrabberVisible: true,
+                headerShadowVisible: false,
+                title: "",
+                contentStyle: { height: "100%" },
+              }
+            : {
+                presentation: "transparentModal",
+                headerShown: false,
+                sheetAllowedDetents: [0.5, 1],
+                sheetGrabberVisible: true,
+                headerShadowVisible: false,
+
+                animation: "fade",
+                contentStyle: {
+                  backgroundColor: "transparent",
+                },
+              }
+        }
+      />
+
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen
           name="(public)/index"
